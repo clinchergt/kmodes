@@ -12,8 +12,6 @@ def matching_dissim(a, b, **_):
 
 def euclidean_dissim(a, b, **_):
     """Euclidean distance dissimilarity function"""
-    if np.isnan(a).any() or np.isnan(b).any():
-        raise ValueError("Missing values detected in numerical columns.")
     return np.sum((a - b) ** 2, axis=1)
 
 
