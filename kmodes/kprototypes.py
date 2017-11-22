@@ -13,10 +13,13 @@ from sklearn.utils.validation import check_array
 from . import kmodes
 from .util import get_max_value_key, encode_features, get_unique_rows, decode_centroids
 from .util.dissim import matching_dissim, euclidean_dissim
+import kmodes.test as ckp
+
+from IPython.core.debugger import Pdb
 
 # Number of tries we give the initialization methods to find non-empty
 # clusters before we switch to random initialization.
-MAX_INIT_TRIES = 20
+MAX_INIT_TRIES = 10
 # Number of tries we give the initialization before we raise an
 # initialization error.
 RAISE_INIT_TRIES = 100
@@ -41,9 +44,9 @@ def _split_num_cat(X, categorical):
     :param X: Feature matrix
     :param categorical: Indices of categorical columns
     """
-    Xnum = np.asanyarray(X[:, [ii for ii in range(X.shape[1])
+    Xnum = np.ascontiguousarray(X[:, [ii for ii in range(X.shape[1])
                                if ii not in categorical]]).astype(np.float64)
-    Xcat = np.asanyarray(X[:, categorical])
+    Xcat = np.ascontiguousarray(X[:, categorical])
     return Xnum, Xcat
 
 
@@ -54,7 +57,7 @@ def _labels_cost(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=
 
     n_points = Xnum.shape[0]
     Xnum = check_array(Xnum)
-
+    # n_points = 6
     cost = 0.
     labels = np.empty(n_points, dtype=np.uint8)
     for ipoint in range(n_points):
@@ -66,6 +69,12 @@ def _labels_cost(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=
         clust = np.argmin(tot_costs)
         labels[ipoint] = clust
         cost += tot_costs[clust]
+        # print(tot_costs)
+        # print("=============values==================")
+        # print(clust)
+        # print(cost)
+        # print("-------------------------------------")
+
 
     return labels, cost
 
@@ -75,10 +84,12 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
     """Single iteration of the k-prototypes algorithm"""
     moves = 0
     for ipoint in range(Xnum.shape[0]):
+        # print(centroids[1])
         clust = np.argmin(
             num_dissim(centroids[0], Xnum[ipoint]) +
             gamma * cat_dissim(centroids[1], Xcat[ipoint], X=Xcat, membship=membship)
         )
+        # print(cat_dissim(centroids[1], Xcat[ipoint]))
         if membship[clust, ipoint]:
             # Point is already in its right place.
             continue
@@ -121,11 +132,12 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
                 cl_attr_freq, membship, centroids[1]
             )
 
+    # print(moves)
     return centroids, moves
 
 
 def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
-                 gamma, init, n_init, verbose):
+                 gamma, init, n_init, verbose, use_cython):
     """k-prototypes algorithm"""
 
     if sparse.issparse(X):
@@ -284,15 +296,25 @@ def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
         itr = 0
         converged = False
         cost = np.Inf
+
         while itr <= max_iter and not converged:
             itr += 1
-            centroids, moves = _k_prototypes_iter(Xnum, Xcat, centroids,
-                                                  cl_attr_sum, cl_memb_sum, cl_attr_freq,
-                                                  membship, num_dissim, cat_dissim, gamma)
 
-            # All points seen in this iteration
-            labels, ncost = _labels_cost(Xnum, Xcat, centroids,
+            if use_cython:
+                centroids, moves = ckp._k_prototypes_iter(Xnum, Xcat, centroids,
+                                                      cl_attr_sum, cl_memb_sum, cl_attr_freq,
+                                                      membship, gamma)
+
+                labels, ncost = ckp._labels_cost(Xnum, Xcat, centroids,
+                                                  membship, gamma)
+            else:
+                centroids, moves = _k_prototypes_iter(Xnum, Xcat, centroids,
+                                         cl_attr_sum, cl_memb_sum, cl_attr_freq,
+                                         membship, num_dissim, cat_dissim, gamma)
+
+                labels, ncost = _labels_cost(Xnum, Xcat, centroids,
                                          num_dissim, cat_dissim, gamma, membship)
+
             converged = (moves == 0) or (ncost >= cost)
             cost = ncost
             if verbose:
@@ -387,13 +409,14 @@ class KPrototypes(kmodes.KModes):
 
     def __init__(self, n_clusters=8, max_iter=100, num_dissim=euclidean_dissim,
                  cat_dissim=matching_dissim, init='Huang', n_init=10, gamma=None,
-                 verbose=0):
+                 verbose=0, use_cython=False):
 
         super(KPrototypes, self).__init__(n_clusters, max_iter, cat_dissim,
                                           init, n_init, verbose)
 
         self.num_dissim = num_dissim
         self.gamma = gamma
+        self.use_cython = use_cython
 
     def fit(self, X, y=None, categorical=None):
         """Compute k-prototypes clustering.
@@ -416,7 +439,8 @@ class KPrototypes(kmodes.KModes):
                                                     self.gamma,
                                                     self.init,
                                                     self.n_init,
-                                                    self.verbose)
+                                                    self.verbose,
+                                                    self.use_cython)
         return self
 
     def predict(self, X, categorical=None):
