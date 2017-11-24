@@ -1,14 +1,17 @@
-# cython: profile=False
 # cython: language_level=3
+# cython: profile=True
+# cython: boundscheck=True
+
 cimport cython
 from cython cimport double, long
 
 import numpy as np
 cimport numpy as np
 
-from . import kmodes
+from .util import get_max_value_key
 
 
+@cython.profile(False)
 cdef inline double _euclidean_dissim(double[:] a, double[:] b, int n):
     cdef double result, tmp
     result = 0.0
@@ -21,6 +24,7 @@ cdef inline double _euclidean_dissim(double[:] a, double[:] b, int n):
     return result
 
 
+@cython.profile(False)
 cdef inline long _matching_dissim(long[:] a, long[:] b, int n):
     cdef long result, tmp
     result = 0
@@ -33,12 +37,66 @@ cdef inline long _matching_dissim(long[:] a, long[:] b, int n):
     return result
 
 
-cdef inline int _get_clust(double[:] x_num,
-                           double[:, :] centroids_num,
-                           long[:] x_cat,
-                           long[:, :] centroids_cat,
-                           int num_clusters,
-                    double gamma):
+cdef move_point_num(double[:] point, int to_clust, int from_clust, double[:, :] cl_attr_sum, long[:] cl_memb_sum):
+    """Move point between clusters, numerical attributes."""
+    cdef:
+        int iattr = 0
+        double curattr
+
+    # Update sum of attributes in cluster.
+    for iattr in range(point.shape[0]):
+        curattr = point[iattr]
+        cl_attr_sum[to_clust, iattr] += curattr
+        cl_attr_sum[from_clust, iattr] -= curattr
+    # Update sums of memberships in cluster
+    cl_memb_sum[to_clust] += 1
+    cl_memb_sum[from_clust] -= 1
+
+
+def move_point_cat(long[:] point, int ipoint, int to_clust, int from_clust,
+                   cl_attr_freq,
+                   membship,
+                   centroids):
+    """Move point between clusters, categorical attributes."""
+    cdef:
+        int iattr
+        double curattr
+
+    membship[to_clust, ipoint] = 1
+    membship[from_clust, ipoint] = 0
+    # Update frequencies of attributes in cluster.
+    for iattr, curattr in enumerate(point):
+        to_attr_counts = cl_attr_freq[to_clust][iattr]
+        from_attr_counts = cl_attr_freq[from_clust][iattr]
+
+        # Increment the attribute count for the new "to" cluster
+        to_attr_counts[curattr] += 1
+
+        current_attribute_value_freq = to_attr_counts[curattr]
+        current_centroid_value = centroids[to_clust][iattr]
+        current_centroid_freq = to_attr_counts[current_centroid_value]
+        if current_centroid_freq < current_attribute_value_freq:
+            # We have incremented this value to the new mode. Update the centroid.
+            centroids[to_clust][iattr] = curattr
+
+        # Decrement the attribute count for the old "from" cluster
+        from_attr_counts[curattr] -= 1
+
+        old_centroid_value = centroids[from_clust][iattr]
+        if old_centroid_value == curattr:
+            # We have just removed a count from the old centroid value. We need to
+            # recalculate the centroid as it may no longer be the maximum
+            centroids[from_clust][iattr] = get_max_value_key(from_attr_counts)
+
+    return cl_attr_freq, membship, centroids
+
+
+cdef _get_clust(double[:] x_num,
+                double[:, :] centroids_num,
+                long[:] x_cat,
+                long[:, :] centroids_cat,
+                int num_clusters,
+                double gamma):
     cdef int iclust, clust
     cdef double curr_dist, min_dist
     min_dist = 9999999
@@ -54,66 +112,41 @@ cdef inline int _get_clust(double[:] x_num,
             min_dist = curr_dist
             clust = iclust
 
-    return clust
+    return min_dist, clust
 
 
 def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
-                       np.ndarray[long, ndim=2, mode='c'] Xcat,
-                       centroids,
-                       membship,
-                       double gamma):
+                 np.ndarray[long, ndim=2, mode='c'] Xcat,
+                 centroids,
+                 double gamma):
     """Calculate labels and cost function given a matrix of points and
     a list of centroids for the k-prototypes algorithm.
     """
+    cdef:
+        int ipoint, clust
+        int n_points = Xnum.shape[0]
+        int n_clusters = len(centroids[0])
 
-    n_points = Xnum.shape[0]
-    cdef double[:, :] _Xnum = Xnum
-    cdef long[:, :] _Xcat = Xcat
+        double min_dist
+        double cost = 0.0
+        double[:, :] _Xnum = Xnum
+        double[:] x_num
+        double[:, :] _centroids_num = centroids[0]
 
-    # cdef int moves = 0
-    cdef int ipoint, iclust
-    cdef int clust
-    cdef double curr_dist
-    cdef double min_dist
-    cdef int num_clusters = len(centroids[0])
-    cdef double a, b
+        long[:, :] _Xcat = Xcat
+        long[:] x_cat
+        long[:, :] _centroids_cat = centroids[1]
 
-    cdef double[:] x_num
-    cdef long[:] x_cat
-
-    cdef double cost = 0.0
-    # n_points = 6
     labels = np.empty(n_points, dtype=np.uint8)
     for ipoint in range(n_points):
         x_num = _Xnum[ipoint]
         x_cat = _Xcat[ipoint]
-        min_dist = 99999999999
-
-        for iclust in range(num_clusters):
-            a = _euclidean_dissim(centroids[0][iclust], x_num, x_num.shape[0])
-            b = _matching_dissim(centroids[1][iclust], x_cat, x_cat.shape[0])
-            curr_dist = a + gamma * b
-
-            if curr_dist < min_dist:
-                min_dist = curr_dist
-                clust = iclust
+        min_dist, clust = _get_clust(x_num, _centroids_num, x_cat, _centroids_cat, n_clusters, gamma)
 
         labels[ipoint] = clust
         cost += min_dist
 
     return labels, cost
-
-
-def move_point_num(point, to_clust, from_clust, cl_attr_sum, cl_memb_sum):
-    """Move point between clusters, numerical attributes."""
-    # Update sum of attributes in cluster.
-    for iattr, curattr in enumerate(point):
-        cl_attr_sum[to_clust][iattr] += curattr
-        cl_attr_sum[from_clust][iattr] -= curattr
-    # Update sums of memberships in cluster
-    cl_memb_sum[to_clust] += 1
-    cl_memb_sum[from_clust] -= 1
-    return cl_attr_sum, cl_memb_sum
 
 
 def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
@@ -125,26 +158,31 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
                        np.ndarray[np.uint8_t, ndim=2, mode='c'] membship,
                        double gamma):
     """Single iteration of the k-prototypes algorithm"""
-    cdef double[:, :] _Xnum = Xnum
-    cdef long[:, :] _Xcat = Xcat
+    cdef:
+        int ipoint, clust, curc, iattr
+        int n_points = Xnum.shape[0]
+        int n_clusters = centroids[0].shape[0]
+        int n_num_attr = Xnum.shape[1]
 
-    # cdef int moves = 0
-    cdef int ipoint, iclust
-    cdef int clust
-    cdef double curr_dist
-    cdef double min_dist
-    cdef int num_clusters = len(centroids[0])
+        double min_dist
+        double[:, :] _Xnum = Xnum
+        double[:] x_num
+        double[:, :] _cl_attr_sum = cl_attr_sum
+        double[:, :] _centroids_num = centroids[0]
 
-    cdef double[:] x_num
-    cdef long[:] x_cat
-
-    cdef double a, b
+        long[:, :] _Xcat = Xcat
+        long[:] x_cat
+        long[:] _cl_memb_sum = cl_memb_sum
+        long[:, :] _centroids_cat = centroids[1]
 
     moves = 0
-    for ipoint in range(Xnum.shape[0]):
+
+    for ipoint in range(n_points):
+        # Get numeric and categorical attribute values for the current point.
         x_num = _Xnum[ipoint]
         x_cat = _Xcat[ipoint]
-        clust = _get_clust(x_num, centroids[0], x_cat, centroids[1], num_clusters, gamma)
+
+        _, clust = _get_clust(x_num, _centroids_num, x_cat, _centroids_cat, n_clusters, gamma)
 
         if membship[clust, ipoint]:
             # Point is already in its right place.
@@ -156,22 +194,22 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
 
         # Note that membship gets updated by kmodes.move_point_cat.
         # move_point_num only updates things specific to the k-means part.
-        cl_attr_sum, cl_memb_sum = move_point_num(
-            Xnum[ipoint], clust, old_clust, cl_attr_sum, cl_memb_sum
+        move_point_num(
+            x_num, clust, old_clust, _cl_attr_sum, _cl_memb_sum
         )
-        cl_attr_freq, membship, centroids[1] = kmodes.move_point_cat(
-            Xcat[ipoint], ipoint, clust, old_clust,
-            cl_attr_freq, membship, centroids[1]
+        cl_attr_freq, membship, _ = move_point_cat(
+            x_cat, ipoint, clust, old_clust,
+            cl_attr_freq, membship, _centroids_cat
         )
 
         # Update old and new centroids for numerical attributes using
         # the means and sums of all values
-        for iattr in range(len(Xnum[ipoint])):
+        for iattr in range(n_num_attr):
             for curc in (clust, old_clust):
                 if cl_memb_sum[curc]:
-                    centroids[0][curc, iattr] = cl_attr_sum[curc, iattr] / cl_memb_sum[curc]
+                    _centroids_num[curc, iattr] = cl_attr_sum[curc, iattr] / cl_memb_sum[curc]
                 else:
-                    centroids[0][curc, iattr] = 0.
+                    _centroids_num[curc, iattr] = 0.
 
         # In case of an empty cluster, reinitialize with a random point
         # from largest cluster.
@@ -180,12 +218,12 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
             choices = [ii for ii, ch in enumerate(membship[from_clust, :]) if ch]
             rindx = np.random.choice(choices)
 
-            cl_attr_sum, cl_memb_sum = move_point_num(
+            move_point_num(
                 Xnum[rindx], old_clust, from_clust, cl_attr_sum, cl_memb_sum
             )
-            cl_attr_freq, membship, centroids[1] = kmodes.move_point_cat(
+            cl_attr_freq, membship, _ = move_point_cat(
                 Xcat[rindx], rindx, old_clust, from_clust,
-                cl_attr_freq, membship, centroids[1]
+                cl_attr_freq, membship, _centroids_cat
             )
 
     return centroids, moves

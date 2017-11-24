@@ -117,7 +117,6 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
             from_clust = membship.sum(axis=1).argmax()
             choices = [ii for ii, ch in enumerate(membship[from_clust, :]) if ch]
             rindx = np.random.choice(choices)
-            print('randomly chosen {}'.format(rindx))
 
             cl_attr_sum, cl_memb_sum = move_point_num(
                 Xnum[rindx], old_clust, from_clust, cl_attr_sum, cl_memb_sum
@@ -232,10 +231,10 @@ def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
                 # categorical following the k-modes methods.
                 meanx = np.mean(Xnum, axis=0)
                 stdx = np.std(Xnum, axis=0)
-                centroids = [
+                centroids = (
                     meanx + np.random.randn(n_clusters, nnumattrs) * stdx,
                     centroids
-                ]
+                )
 
             if verbose:
                 print("Init: initializing clusters")
@@ -299,8 +298,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
                                                       cl_attr_sum, cl_memb_sum, cl_attr_freq,
                                                       membship, gamma)
 
-                labels, ncost = ckp._labels_cost(Xnum, Xcat, centroids,
-                                                  membship, gamma)
+                labels, ncost = ckp._labels_cost(Xnum, Xcat, centroids, gamma)
             else:
                 centroids, moves = _k_prototypes_iter(Xnum, Xcat, centroids,
                                          cl_attr_sum, cl_memb_sum, cl_attr_freq,
