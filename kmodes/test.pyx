@@ -17,6 +17,7 @@ cdef inline double _euclidean_dissim(double[:] a, double[:] b, int n):
     for i in range(n):
         tmp = (a[i] - b[i])
         result += tmp * tmp
+
     return result
 
 
@@ -42,7 +43,8 @@ cdef inline int _get_clust(double[:] x_num,
     cdef double curr_dist, min_dist
     min_dist = 9999999
 
-    cdef double a, b
+    cdef double a
+    cdef long b
     for iclust in range(num_clusters):
         a = _euclidean_dissim(centroids_num[iclust], x_num, x_num.shape[0])
         b = _matching_dissim(centroids_cat[iclust], x_cat, x_cat.shape[0])
@@ -76,8 +78,6 @@ def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
     cdef int num_clusters = len(centroids[0])
     cdef double a, b
 
-    cdef double[:, :] centroids_num = centroids[0]
-    cdef long[:, :] centroids_cat = centroids[1].astype('int64')
     cdef double[:] x_num
     cdef long[:] x_cat
 
@@ -90,22 +90,16 @@ def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
         min_dist = 99999999999
 
         for iclust in range(num_clusters):
-            a = _euclidean_dissim(centroids_num[iclust], x_num, x_num.shape[0])
-            b = _matching_dissim(centroids_cat[iclust], x_cat, x_cat.shape[0])
+            a = _euclidean_dissim(centroids[0][iclust], x_num, x_num.shape[0])
+            b = _matching_dissim(centroids[1][iclust], x_cat, x_cat.shape[0])
             curr_dist = a + gamma * b
 
             if curr_dist < min_dist:
                 min_dist = curr_dist
                 clust = iclust
-        #     print(curr_dist, end=" ")
 
-        # print("\n=============values=================")
         labels[ipoint] = clust
         cost += min_dist
-        # print(clust)
-        # print(cost)
-        # print("-------------------------------------")
-
 
     return labels, cost
 
@@ -125,10 +119,10 @@ def move_point_num(point, to_clust, from_clust, cl_attr_sum, cl_memb_sum):
 def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
                        np.ndarray[long, ndim=2, mode='c'] Xcat,
                        centroids,
-                       cl_attr_sum,
-                       cl_memb_sum,
+                       np.ndarray[double, ndim=2, mode='c'] cl_attr_sum,
+                       np.ndarray[long, ndim=1, mode='c'] cl_memb_sum,
                        cl_attr_freq,
-                       membship,
+                       np.ndarray[np.uint8_t, ndim=2, mode='c'] membship,
                        double gamma):
     """Single iteration of the k-prototypes algorithm"""
     cdef double[:, :] _Xnum = Xnum
@@ -141,20 +135,16 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
     cdef double min_dist
     cdef int num_clusters = len(centroids[0])
 
-    cdef double[:, :] centroids_num = centroids[0]
-    cdef long[:, :] centroids_cat = centroids[1].astype('int64')
     cdef double[:] x_num
     cdef long[:] x_cat
 
     cdef double a, b
 
     moves = 0
-    # print(centroids_cat)
     for ipoint in range(Xnum.shape[0]):
         x_num = _Xnum[ipoint]
         x_cat = _Xcat[ipoint]
-
-        clust = _get_clust(x_num, centroids_num, x_cat, centroids_cat, num_clusters, gamma)
+        clust = _get_clust(x_num, centroids[0], x_cat, centroids[1], num_clusters, gamma)
 
         if membship[clust, ipoint]:
             # Point is already in its right place.
@@ -198,5 +188,4 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
                 cl_attr_freq, membship, centroids[1]
             )
 
-    # print(moves)
     return centroids, moves

@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 from distutils.core import setup
+from distutils.extension import Extension
 from Cython.Build import cythonize
 import numpy
 
@@ -44,6 +45,6 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Topic :: Scientific/Engineering'],
-    ext_modules=cythonize("kmodes/test.pyx"),
+    ext_modules=cythonize([Extension('kmodes.test', ['kmodes/test.pyx'])], gdb_debug=True),
     include_dirs=[numpy.get_include()],
 )

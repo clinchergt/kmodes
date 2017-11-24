@@ -69,12 +69,6 @@ def _labels_cost(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=
         clust = np.argmin(tot_costs)
         labels[ipoint] = clust
         cost += tot_costs[clust]
-        # print(tot_costs)
-        # print("=============values==================")
-        # print(clust)
-        # print(cost)
-        # print("-------------------------------------")
-
 
     return labels, cost
 
@@ -89,7 +83,7 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
             num_dissim(centroids[0], Xnum[ipoint]) +
             gamma * cat_dissim(centroids[1], Xcat[ipoint], X=Xcat, membship=membship)
         )
-        # print(cat_dissim(centroids[1], Xcat[ipoint]))
+
         if membship[clust, ipoint]:
             # Point is already in its right place.
             continue
@@ -123,6 +117,7 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
             from_clust = membship.sum(axis=1).argmax()
             choices = [ii for ii, ch in enumerate(membship[from_clust, :]) if ch]
             rindx = np.random.choice(choices)
+            print('randomly chosen {}'.format(rindx))
 
             cl_attr_sum, cl_memb_sum = move_point_num(
                 Xnum[rindx], old_clust, from_clust, cl_attr_sum, cl_memb_sum
@@ -132,7 +127,6 @@ def _k_prototypes_iter(Xnum, Xcat, centroids, cl_attr_sum, cl_memb_sum, cl_attr_
                 cl_attr_freq, membship, centroids[1]
             )
 
-    # print(moves)
     return centroids, moves
 
 
@@ -250,7 +244,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
             # can do k-means on the numerical attributes.
             cl_attr_sum = np.zeros((n_clusters, nnumattrs), dtype=np.float64)
             # Same for the membership sum per cluster
-            cl_memb_sum = np.zeros(n_clusters, dtype=int)
+            cl_memb_sum = np.zeros(n_clusters, dtype=np.int64)
             # cl_attr_freq is a list of lists with dictionaries that contain
             # the frequencies of values per cluster and attribute.
             cl_attr_freq = [[defaultdict(int) for _ in range(ncatattrs)]
@@ -296,7 +290,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
         itr = 0
         converged = False
         cost = np.Inf
-
+        # centroids[1] = centroids[1].astype('int64')
         while itr <= max_iter and not converged:
             itr += 1
 

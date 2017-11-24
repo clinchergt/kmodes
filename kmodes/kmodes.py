@@ -18,7 +18,7 @@ from .util.dissim import matching_dissim, ng_dissim
 def init_huang(X, n_clusters, dissim):
     """Initialize centroids according to method by Huang [1997]."""
     n_attrs = X.shape[1]
-    centroids = np.empty((n_clusters, n_attrs), dtype='object')
+    centroids = np.empty((n_clusters, n_attrs), dtype='int64')
     # determine frequencies of attributes
     for iattr in range(n_attrs):
         freq = defaultdict(int)
@@ -53,7 +53,7 @@ def init_cao(X, n_clusters, dissim):
     Note: O(N * attr * n_clusters**2), so watch out with large n_clusters
     """
     n_points, n_attrs = X.shape
-    centroids = np.empty((n_clusters, n_attrs), dtype='object')
+    centroids = np.empty((n_clusters, n_attrs), dtype='int64')
     # Method is based on determining density of points.
     dens = np.zeros(n_points)
     for iattr in range(n_attrs):
