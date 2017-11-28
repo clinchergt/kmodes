@@ -1,16 +1,16 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages
 from distutils.core import setup
 from distutils.extension import Extension
 from Cython.Build import cythonize
 import numpy
 
-import kmodes
+import cluster
 
-DESCRIPTION = kmodes.__doc__
-VERSION = kmodes.__version__
+DESCRIPTION = cluster.__doc__
+VERSION = cluster.__version__
 
 setup(
-    name='kmodes',
+    name='cluster',
     packages=find_packages(exclude=[
         '*.tests',
         '*.tests.*',
@@ -45,6 +45,9 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Topic :: Scientific/Engineering'],
-    ext_modules=cythonize([Extension('kmodes.test', ['kmodes/test.pyx'])], gdb_debug=True),
-    include_dirs=[numpy.get_include()],
+    ext_modules=cythonize([Extension('cluster._k_proto', ['cluster/_k_proto.pyx']),
+                           Extension('cluster.util._util', ['cluster/util/_util.pyx']),
+                           Extension('cluster.util._dissim', ['cluster/util/_dissim.pyx'])],
+                          gdb_debug=True),
+                          include_dirs=[numpy.get_include()],
 )

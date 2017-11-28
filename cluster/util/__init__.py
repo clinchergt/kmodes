@@ -28,11 +28,11 @@ def encode_features(X, enc_map=None):
     Unknown values during prediction get a value of -1. np.NaNs are ignored
     during encoding, and get treated as unknowns during prediction.
     """
-    if np.issubdtype(X.dtype, np.integer):
-        # Already integer type, so we can take a shortcut. Simply reshape
-        # the data to mapping dictionaries, and do nothing with X.
-        enc_map = [{val: val for val in np.unique(col)} for col in X.T]
-        return X, enc_map
+    # if np.issubdtype(X.dtype, np.integer):
+    #     # Already integer type, so we can take a shortcut. Simply reshape
+    #     # the data to mapping dictionaries, and do nothing with X.
+    #     enc_map = [{val: val for val in enumerate(np.unique(col))} for col in X.T]
+    #     return X, enc_map
 
     if enc_map is None:
         fit = True
@@ -49,7 +49,6 @@ def encode_features(X, enc_map=None):
             enc_map.append(col_enc)
         # Unknown categories (including np.NaNs) all get a value of -1.
         Xenc[:, ii] = np.array([enc_map[ii].get(x, -1) for x in X[:, ii]])
-
     return Xenc, enc_map
 
 

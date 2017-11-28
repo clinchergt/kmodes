@@ -12,70 +12,6 @@ from sklearn.base import BaseEstimator, ClusterMixin
 from sklearn.utils.validation import check_array
 
 from .util import get_max_value_key, encode_features, get_unique_rows, decode_centroids
-from .util.dissim import matching_dissim, ng_dissim
-
-
-def init_huang(X, n_clusters, dissim):
-    """Initialize centroids according to method by Huang [1997]."""
-    n_attrs = X.shape[1]
-    centroids = np.empty((n_clusters, n_attrs), dtype='int64')
-    # determine frequencies of attributes
-    for iattr in range(n_attrs):
-        freq = defaultdict(int)
-        for curattr in X[:, iattr]:
-            freq[curattr] += 1
-        # Sample centroids using the probabilities of attributes.
-        # (I assume that's what's meant in the Huang [1998] paper; it works,
-        # at least)
-        # Note: sampling using population in static list with as many choices
-        # as frequency counts. Since the counts are small integers,
-        # memory consumption is low.
-        choices = [chc for chc, wght in freq.items() for _ in range(wght)]
-        # So that we are consistent between Python versions,
-        # each with different dict ordering.
-        choices = sorted(choices)
-        centroids[:, iattr] = np.random.choice(choices, n_clusters)
-    # The previously chosen centroids could result in empty clusters,
-    # so set centroid to closest point in X.
-    for ik in range(n_clusters):
-        ndx = np.argsort(dissim(X, centroids[ik]))
-        # We want the centroid to be unique.
-        while np.all(X[ndx[0]] == centroids, axis=1).any():
-            ndx = np.delete(ndx, 0)
-        centroids[ik] = X[ndx[0]]
-
-    return centroids
-
-
-def init_cao(X, n_clusters, dissim):
-    """Initialize centroids according to method by Cao et al. [2009].
-
-    Note: O(N * attr * n_clusters**2), so watch out with large n_clusters
-    """
-    n_points, n_attrs = X.shape
-    centroids = np.empty((n_clusters, n_attrs), dtype='int64')
-    # Method is based on determining density of points.
-    dens = np.zeros(n_points)
-    for iattr in range(n_attrs):
-        freq = defaultdict(int)
-        for val in X[:, iattr]:
-            freq[val] += 1
-        for ipoint in range(n_points):
-            dens[ipoint] += freq[X[ipoint, iattr]] / float(n_attrs)
-    dens /= n_points
-
-    # Choose initial centroids based on distance and density.
-    centroids[0] = X[np.argmax(dens)]
-    if n_clusters > 1:
-        # For the remaining centroids, choose maximum dens * dissim to the
-        # (already assigned) centroid with the lowest dens * dissim.
-        for ik in range(1, n_clusters):
-            dd = np.empty((ik, n_points))
-            for ikk in range(ik):
-                dd[ikk] = dissim(X, centroids[ikk]) * dens
-            centroids[ik] = X[np.argmax(np.min(dd, axis=0))]
-
-    return centroids
 
 
 def move_point_cat(point, ipoint, to_clust, from_clust, cl_attr_freq,
@@ -225,7 +161,8 @@ def k_modes(X, n_clusters, max_iter, dissim, init, n_init, verbose):
         membship = np.zeros((n_clusters, n_points), dtype=np.uint8)
         # cl_attr_freq is a list of lists with dictionaries that contain the
         # frequencies of values per cluster and attribute.
-        cl_attr_freq = [[defaultdict(int) for _ in range(n_attrs)]
+        cl_attr_freq = np.zeros((n_clusters, total_cat_size), dtype=np.uint64)
+        [[defaultdict(int) for _ in range(n_attrs)]
                         for _ in range(n_clusters)]
         for ipoint, curpoint in enumerate(X):
             # Initial assignment to clusters
