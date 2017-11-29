@@ -353,6 +353,10 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
         """
         assert hasattr(self, '_enc_centroids'), "Model not yet fitted."
 
+        # Convert pandas objects to numpy arrays.
+        if 'pandas' in str(X.__class__):
+            X = X.values
+
         Xnum, Xcat = _split_num_cat(X, categorical)
         Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
         Xcat, _ = encode_features(Xcat, enc_map=self._enc_map)
