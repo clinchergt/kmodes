@@ -1,30 +1,32 @@
 # cython: language_level=3
-# cython: profile=True
-# cython: boundscheck=True
+# cython: profile=False
+# cython: boundscheck=False
+# cython: wraparound=False
+
 cimport cython
 from cython cimport double, long
 
 @cython.profile(False)
-cdef double _euclidean_dissim(double[:] a, double[:] b, int n):
+cdef double _euclidean_dissim(double[:] centroid, double[:] x):
     cdef double result, tmp
     result = 0.0
 
     cdef int i
-    for i in range(n):
-        tmp = (a[i] - b[i])
+    for i in range(x.shape[0]):
+        tmp = (centroid[i] - x[i])
         result += tmp * tmp
 
     return result
 
 
 @cython.profile(False)
-cdef long _matching_dissim(long[:] a, long[:] b, int n):
-    cdef long result, tmp
+cdef int _matching_dissim(long[:] centroid, long[:] x):
+    cdef int result, tmp
     result = 0
 
     cdef int i
-    for i in range(n):
-        tmp = (a[i] != b[i])
+    for i in range(x.shape[0]):
+        tmp = (centroid[i] != x[i])
         result += tmp
 
     return result

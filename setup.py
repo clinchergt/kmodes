@@ -4,10 +4,8 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 import numpy
 
-import cluster
-
-DESCRIPTION = cluster.__doc__
-VERSION = cluster.__version__
+DESCRIPTION = "lel"
+VERSION = 42
 
 setup(
     name='cluster',

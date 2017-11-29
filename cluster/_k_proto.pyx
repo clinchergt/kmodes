@@ -1,6 +1,7 @@
 # cython: language_level=3
 # cython: profile=True
-# cython: boundscheck=True
+# cython: boundscheck=False
+# cython: wraparound=False
 
 cimport cython
 from cython cimport double, long
@@ -23,15 +24,14 @@ cpdef ClustInfo _get_clust(double[:] x_num,
                            int num_clusters,
                            double gamma):
     cdef:
-        int iclust, clust
-        long b
+        int iclust, clust, b
         double curr_dist, a
         ClustInfo c
 
     c.min_dist = 999999
     for iclust in range(num_clusters):
-        a = _dissim._euclidean_dissim(centroids_num[iclust], x_num, x_num.shape[0])
-        b = _dissim._matching_dissim(centroids_cat[iclust], x_cat, x_cat.shape[0])
+        a = _dissim._euclidean_dissim(centroids_num[iclust], x_num)
+        b = _dissim._matching_dissim(centroids_cat[iclust], x_cat)
         curr_dist = a + gamma * b
 
         if curr_dist < c.min_dist:
@@ -59,7 +59,7 @@ def _init_centroids(np.ndarray[long, ndim=2, mode='c'] X,
         ipoint_centroid = 0
 
         for ipoint in range(X.shape[0]):
-            _dissims[ipoint] = _dissim._matching_dissim(_X[ipoint], _centroids[iclust], _X.shape[1])
+            _dissims[ipoint] = _dissim._matching_dissim(_X[ipoint], _centroids[iclust])
 
         ndx = np.argsort(dissims)
 

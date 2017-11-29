@@ -165,7 +165,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
             for ipoint in range(n_points):
                 # Initial assignment to clusters
                 c = _k_proto._get_clust(Xnum[ipoint], centroids[0], Xcat[ipoint],
-                                               centroids[1], centroids[1].shape[0], gamma)
+                                        centroids[1], centroids[1].shape[0], gamma)
                 clust = c['clust']
                 membship[ipoint] = clust
                 cl_memb_sum[clust] += 1
