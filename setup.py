@@ -43,10 +43,12 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Topic :: Scientific/Engineering'],
-    ext_modules=cythonize([Extension('cluster._k_proto', ['cluster/_k_proto.pyx'], extra_compile_args=['-O3']),
-                           Extension('cluster.util._util', ['cluster/util/_util.pyx'], extra_compile_args=['-O3']),
-                           Extension('cluster.util._dissim', ['cluster/util/_dissim.pyx'], extra_compile_args=['-O3'])],
-                          ),
+    ext_modules=cythonize([Extension('cluster._k_proto',
+                                     ['cluster/_k_proto.pyx'],
+                                     extra_compile_args=[
+                                         '-O3',
+                                         '-Wno-unreachable-code']
+                                     )
+                           ]),
     include_dirs=[numpy.get_include()],
-
 )

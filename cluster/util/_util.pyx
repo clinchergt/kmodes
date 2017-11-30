@@ -1,6 +1,7 @@
 # cython: language_level=3
 # cython: profile=True
-# cython: boundscheck=True
+# cython: boundscheck=False
+# cython: wraparound=False
 
 
 cdef void _move_point_num(double[:] point, int to_clust, int from_clust, double[:, :] cl_attr_sum, long[:] cl_memb_sum):

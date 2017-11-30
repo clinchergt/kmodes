@@ -4,8 +4,6 @@
 # cython: wraparound=False
 
 cimport cython
-from cython cimport double, long
-
 import numpy as np
 cimport numpy as np
 from .util cimport _util

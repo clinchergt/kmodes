@@ -4,7 +4,6 @@
 # cython: wraparound=False
 
 cimport cython
-from cython cimport double, long
 
 @cython.profile(False)
 cdef double _euclidean_dissim(double[:] centroid, double[:] x):
