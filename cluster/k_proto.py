@@ -211,13 +211,18 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
                                                   cl_attr_sum, cl_memb_sum, cl_attr_freq, cat_offsets,
                                                   membship, gamma)
 
-            labels, ncost = _k_proto._labels_cost(Xnum, Xcat, centroids, gamma)
+            converged = (moves == 0)
 
-            converged = (moves == 0) or (ncost >= cost)
-            cost = ncost
-            if verbose:
-                print("Run: {}, iteration: {}/{}, moves: {}, ncost: {}"
-                      .format(init_no + 1, itr, max_iter, moves, ncost))
+            # TODO: Verify why we need to calculate labels and cost for every iteration as opposed to every run
+            # labels, ncost = _k_proto._labels_cost(Xnum, Xcat, centroids, gamma)
+            #
+            # converged = (moves == 0) or (ncost >= cost)
+            # cost = ncost
+            # if verbose:
+            #     print("Run: {}, iteration: {}/{}, moves: {}, ncost: {}"
+            #           .format(init_no + 1, itr, max_iter, moves, ncost))
+
+        labels, cost = _k_proto._labels_cost(Xnum, Xcat, centroids, gamma)
 
         # Store results of current run.
         all_centroids.append(centroids)
