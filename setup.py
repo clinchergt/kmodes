@@ -45,10 +45,16 @@ setup(
                  'Topic :: Scientific/Engineering'],
     ext_modules=cythonize([Extension('cluster._k_proto',
                                      ['cluster/_k_proto.pyx'],
-                                     extra_compile_args=[
-                                         '-O3',
-                                         '-Wno-unreachable-code']
-                                     )
-                           ]),
+                                     extra_compile_args=['-O3',
+                                                         '-Wno-unreachable-code']),
+                           Extension('cluster.util._util',
+                                     ['cluster/util/_util.pyx'],
+                                     extra_compile_args=['-O3',
+                                                         '-Wno-unreachable-code']),
+                           Extension('cluster.util._dissim',
+                                     ['cluster/util/_dissim.pyx'],
+                                     extra_compile_args=['-O3',
+                                                         '-Wno-unreachable-code'])],
+                          ),
     include_dirs=[numpy.get_include()],
 )

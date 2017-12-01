@@ -64,7 +64,7 @@ cpdef long _get_max_value_key(long[:, :] cl_attr_freq, long[:] cat_offsets, long
     cdef:
         long max_val = 0
         long index = 0
-        long i
+        unsigned long i
         long offset
         long[:] cats
     offset = cat_offsets[iattr]
