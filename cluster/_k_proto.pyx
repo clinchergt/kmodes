@@ -61,7 +61,7 @@ def _init_centroids(np.ndarray[long, ndim=2, mode='c'] X,
 
         ndx = np.argsort(dissims)
 
-        while np.all(X[ndx[ipoint_centroid]] == centroids, axis=1).any():
+        while ipoint_centroid + 1 < X.shape[0] and np.all(X[ndx[ipoint_centroid]] == centroids, axis=1).any():
             ipoint_centroid += 1
         centroids[iclust] = X[ndx[ipoint_centroid]]
 

@@ -51,7 +51,6 @@ setup(
                            Extension('cluster.util._util',
                                      ['cluster/util/_util.pyx'],
                                      include_dirs=[numpy.get_include()],
-
                                      extra_compile_args=['-O3',
                                                          '-Wno-unreachable-code']),
                            Extension('cluster.util._dissim',

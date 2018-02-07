@@ -36,61 +36,82 @@ def _split_num_cat(X, categorical):
     return Xnum, Xcat
 
 
-def build_cat_index(x):
-    cat_offsets = np.zeros(x.shape[1], dtype=np.int64)
-    for cat in range(x.shape[1] - 1):
-        cat_offsets[cat + 1] = cat_offsets[cat] + len(np.unique(x[:,cat]))
+def cat_sizes(X):
+    cat_sizes = np.zeros(X.shape[1], dtype=np.int64)
+    for cat in range(X.shape[1]):
+        cat_sizes[cat] = np.max(X[:, cat]) + 1
+    return cat_sizes
+
+
+def cat_offsets(cat_sizes):
+    cat_cumsum = cat_sizes.cumsum()
+    cat_offsets = np.zeros(cat_sizes.shape[0], dtype=np.int64)
+    for cat in range(cat_sizes.shape[0] - 1):
+        cat_offsets[cat + 1] = cat_cumsum[cat]
     return cat_offsets
 
 
-def k_prototypes(X, categorical, n_clusters, max_iter,
-                 gamma, init, n_init, verbose):
+def cat_index(data):
+    cat_cols = data.select_dtypes("category")
+    return [data.columns.get_loc(c) for c in cat_cols]
+
+
+def preprocess(data):
+    if type(data) == tuple:
+        return data
+
+    if type(data) == dict:
+        if not ('num' in data and 'cat' in data):
+            raise ValueError("Input data in dict form should contain a 'num' and 'cat' key,\
+             pointing to numerical and categorical data, respectively.")
+        return data['num'], data['cat']
+
+    if 'pandas' in str(data.__class__):
+        categorical = cat_index(data)
+        data = data.values
+        return _split_num_cat(data, categorical)
+
+    raise ValueError("Input data should be in the form of a tuple, dictionary or Pandas DataFrame.")
+
+
+def k_prototypes(X, n_clusters, max_iter,
+                 gamma, init, n_init, verbose, enc_map):
     """k-prototypes algorithm"""
 
     if sparse.issparse(X):
         raise TypeError("k-prototypes does not support sparse data.")
 
-    # Convert pandas objects to numpy arrays.
-    if 'pandas' in str(X.__class__):
-        X = X.values
+    Xnum, Xcat = preprocess(X)
+    Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
 
-    if categorical is None or not categorical:
-        raise NotImplementedError(
-            "No categorical data selected, effectively doing k-means. "
-            "Present a list of categorical columns, or use scikit-learn's "
-            "KMeans instead."
-        )
-    if isinstance(categorical, int):
-        categorical = [categorical]
-    assert len(categorical) != X.shape[1], \
-        "All columns are categorical, use k-modes instead of k-prototypes."
-    assert max(categorical) < X.shape[1], \
-        "Categorical index larger than number of columns."
+    ncatattrs = Xcat.shape[1]
+    nnumattrs = Xnum.shape[1]
 
-    ncatattrs = len(categorical)
-    nnumattrs = X.shape[1] - ncatattrs
+    if ncatattrs == 0:
+        ValueError("No categorical attributes in input data, use K-Means instead.")
+
     n_points = X.shape[0]
     assert n_clusters <= n_points, "Cannot have more clusters ({}) " \
                                    "than data points ({}).".format(n_clusters, n_points)
 
-    Xnum, Xcat = _split_num_cat(X, categorical)
-    Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
-
     # Convert the categorical values in Xcat to integers for speed.
     # Based on the unique values in Xcat, we can make a mapping to achieve this.
-    Xcat, enc_map = encode_features(Xcat)
-    cat_offsets = build_cat_index(Xcat)
 
+    Xcat, enc_map = encode_features(Xcat, enc_map)
+    sizes = cat_sizes(Xcat)
+    offsets = cat_offsets(sizes)
+
+    # TODO: Fix the below.
     # Are there more n_clusters than unique rows? Then set the unique
     # rows as initial values and skip iteration.
-    unique = get_unique_rows(X)
-    n_unique = unique.shape[0]
-    if n_unique <= n_clusters:
-        max_iter = 0
-        n_init = 1
-        n_clusters = n_unique
-        init = list(_split_num_cat(unique, categorical))
-        init[1], _ = encode_features(init[1], enc_map)
+    # unique = get_unique_rows(X)
+    # n_unique = unique.shape[0]
+    # if n_unique <= n_clusters:
+    #     max_iter = 0
+    #     n_init = 1
+    #     n_clusters = n_unique
+    #     init = list(_split_num_cat(unique, categorical))
+    #     init[1], _ = encode_features(init[1], enc_map)
 
     # Estimate a good value for gamma, which determines the weighing of
     # categorical values in clusters (see Huang [1997]).
@@ -161,7 +182,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
             cl_memb_sum = np.zeros(n_clusters, dtype=np.int64)
             # cl_attr_freq is a list of lists with dictionaries that contain
             # the frequencies of values per cluster and attribute.
-            cl_attr_freq = np.zeros((n_clusters, cat_offsets.sum()), dtype=np.int64)
+            cl_attr_freq = np.zeros((n_clusters, sizes.sum()), dtype=np.int64)
             for ipoint in range(n_points):
                 # Initial assignment to clusters
                 c = _k_proto._get_clust(Xnum[ipoint], centroids[0], Xcat[ipoint],
@@ -173,8 +194,8 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
                 for iattr, curattr in enumerate(Xnum[ipoint]):
                     cl_attr_sum[clust, iattr] += curattr
                 for iattr, curattr in enumerate(Xcat[ipoint]):
-                    # print(iattr, curattr)
-                    cl_attr_freq[clust, cat_offsets[iattr] + curattr] += 1
+                    offset = offsets[iattr]
+                    cl_attr_freq[clust, offset + curattr] += 1
 
             # If no empty clusters, then consider initialization finalized.
             if cl_memb_sum.all():
@@ -195,7 +216,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
             for iattr in range(nnumattrs):
                 centroids[0][ik, iattr] = cl_attr_sum[ik, iattr] / cl_memb_sum[ik]
             for iattr in range(ncatattrs):
-                centroids[1][ik, iattr] = _util._get_max_value_key(cl_attr_freq, cat_offsets, ik, iattr)
+                centroids[1][ik, iattr] = _util._get_max_value_key(cl_attr_freq, offsets, ik, iattr)
 
         # _____ ITERATION _____
         if verbose:
@@ -208,7 +229,7 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
             itr += 1
 
             centroids, moves = _k_proto._k_prototypes_iter(Xnum, Xcat, centroids,
-                                                  cl_attr_sum, cl_memb_sum, cl_attr_freq, cat_offsets,
+                                                  cl_attr_sum, cl_memb_sum, cl_attr_freq, offsets,
                                                   membship, gamma)
 
             converged = (moves == 0)
@@ -221,6 +242,9 @@ def k_prototypes(X, categorical, n_clusters, max_iter,
             # if verbose:
             #     print("Run: {}, iteration: {}/{}, moves: {}, ncost: {}"
             #           .format(init_no + 1, itr, max_iter, moves, ncost))
+
+        if not converged:
+            print("Did not converge in the specified amount of iterations.")
 
         labels, cost = _k_proto._labels_cost(Xnum, Xcat, centroids, gamma)
 
@@ -320,7 +344,7 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
         self.gamma = gamma
 
 
-    def fit(self, X, y=None, categorical=None):
+    def fit(self, X, y=None, enc_map=None):
         """Compute k-prototypes clustering.
 
         Parameters
@@ -333,16 +357,16 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
         # the data. The function below returns its value.
         self._enc_centroids, self._enc_map, self.labels_, self.cost_,\
             self.n_iter_, self.gamma = k_prototypes(X,
-                                                    categorical,
                                                     self.n_clusters,
                                                     self.max_iter,
                                                     self.gamma,
                                                     self.init,
                                                     self.n_init,
-                                                    self.verbose)
+                                                    self.verbose,
+                                                    enc_map)
         return self
 
-    def predict(self, X, categorical=None):
+    def predict(self, X):
         """Predict the closest cluster each sample in X belongs to.
 
         Parameters
@@ -358,11 +382,7 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
         """
         assert hasattr(self, '_enc_centroids'), "Model not yet fitted."
 
-        # Convert pandas objects to numpy arrays.
-        if 'pandas' in str(X.__class__):
-            X = X.values
-
-        Xnum, Xcat = _split_num_cat(X, categorical)
+        Xnum, Xcat = preprocess(X)
         Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
         Xcat, _ = encode_features(Xcat, enc_map=self._enc_map)
         return _k_proto._labels_cost(Xnum, Xcat, self._enc_centroids, self.gamma)[0]
