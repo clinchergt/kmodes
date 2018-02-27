@@ -26,8 +26,9 @@ setup(
         # give import problems.
         # scikit-learn version is capped to avoid compatibility issues.
         'numpy>=1.10.4',
-        'scikit-learn>=0.19.0, <0.20.0',
+        'scikit-learn>=0.19.0',
         'scipy>=0.13.3',
+        'cython',
     ],
     classifiers=['Development Status :: 3 - Alpha',
                  'Intended Audience :: Science/Research',
