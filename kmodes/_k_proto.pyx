@@ -6,6 +6,7 @@
 
 import numpy as np
 cimport numpy as np
+from numpy.math cimport INFINITY
 from .util cimport _util
 from .util cimport _dissim
 
@@ -26,7 +27,7 @@ cpdef ClustInfo _get_clust(double[:] x_num,
         double curr_dist, a
         ClustInfo c
 
-    c.min_dist = 999999
+    c.min_dist = INFINITY
     for iclust in range(num_clusters):
         a = _dissim._euclidean_dissim(centroids_num[iclust], x_num)
         b = _dissim._matching_dissim(centroids_cat[iclust], x_cat)

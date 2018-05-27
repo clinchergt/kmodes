@@ -4,11 +4,12 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 import numpy
 
-DESCRIPTION = "lel"
-VERSION = 42
+DESCRIPTION = 'Python implementations of the k-modes and k-prototypes \
+               kmodesing algorithms for kmodesing categorical data.'
+VERSION = '0.8-cython'
 
 setup(
-    name='cluster',
+    name='kmodes',
     packages=find_packages(exclude=[
         '*.tests',
         '*.tests.*',
@@ -44,18 +45,18 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Topic :: Scientific/Engineering'],
-    ext_modules=cythonize([Extension('cluster._k_proto',
-                                     ['cluster/_k_proto.pyx'],
+    ext_modules=cythonize([Extension('kmodes._k_proto',
+                                     ['kmodes/_k_proto.pyx'],
                                      include_dirs=[numpy.get_include()],
                                      extra_compile_args=['-O3',
                                                          '-Wno-unreachable-code']),
-                           Extension('cluster.util._util',
-                                     ['cluster/util/_util.pyx'],
+                           Extension('kmodes.util._util',
+                                     ['kmodes/util/_util.pyx'],
                                      include_dirs=[numpy.get_include()],
                                      extra_compile_args=['-O3',
                                                          '-Wno-unreachable-code']),
-                           Extension('cluster.util._dissim',
-                                     ['cluster/util/_dissim.pyx'],
+                           Extension('kmodes.util._dissim',
+                                     ['kmodes/util/_dissim.pyx'],
                                      include_dirs=[numpy.get_include()],
                                      extra_compile_args=['-O3',
                                                          '-Wno-unreachable-code'])],
