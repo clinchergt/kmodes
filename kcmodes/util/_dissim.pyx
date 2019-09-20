@@ -12,7 +12,7 @@ cdef double _euclidean_dissim(double[:] centroid, double[:] x):
     cdef double result, tmp
     result = 0.0
 
-    cdef int i
+    cdef int32_t i
     for i in range(x.shape[0]):
         tmp = (centroid[i] - x[i])
         result += tmp * tmp
@@ -21,23 +21,23 @@ cdef double _euclidean_dissim(double[:] centroid, double[:] x):
 
 
 @cython.profile(False)
-cdef int _matching_dissim(long[:] centroid, long[:] x):
-    cdef int result, tmp
+cdef int32_t _matching_dissim(int64_t[:] centroid, int64_t[:] x):
+    cdef int32_t result, tmp
     result = 0
 
-    cdef int i
+    cdef int32_t i
     for i in range(x.shape[0]):
         tmp = (centroid[i] != x[i])
         result += tmp
 
     return result
 
-cpdef pairwise_dissim(double[:, :] x_num, long[:, :] x_cat, double[:, :] y_num, long[:, :] y_cat, double gamma):
+cpdef pairwise_dissim(double[:, :] x_num, int64_t[:, :] x_cat, double[:, :] y_num, int64_t[:, :] y_cat, double gamma):
     result = np.zeros((x_num.shape[0], y_num.shape[0]), dtype=np.float)
 
-    cdef int i, j
+    cdef int32_t i, j
     cdef double a
-    cdef long b
+    cdef int64_t b
     for i in range(x_num.shape[0]):
         for j in range(y_num.shape[0]):
             a = _euclidean_dissim(y_num[j], x_num[i])

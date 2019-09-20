@@ -5,17 +5,17 @@ from Cython.Build import cythonize
 import numpy
 
 DESCRIPTION = 'Python implementations of the k-modes and k-prototypes \
-               kmodesing algorithms for kmodesing categorical data.'
-VERSION = '0.8-cython'
+               kcmodesing algorithms for kcmodesing categorical data.'
+VERSION = '08cython'
 
 setup(
-    name='kmodes',
+    name='kcmodes',
     packages=find_packages(exclude=[
         '*.tests',
         '*.tests.*',
     ]),
     version=VERSION,
-    url='https://github.com/nicodv/kmodes',
+    url='https://github.com/nicodv/kcmodes',
     author='Nico de Vos',
     author_email='njdevos@gmail.com',
     license='MIT',
@@ -45,20 +45,17 @@ setup(
                  'Programming Language :: Python :: 3.5',
                  'Programming Language :: Python :: 3.6',
                  'Topic :: Scientific/Engineering'],
-    ext_modules=cythonize([Extension('kmodes._k_proto',
-                                     ['kmodes/_k_proto.pyx'],
+    ext_modules=cythonize([Extension('kcmodes._k_proto',
+                                     ['kcmodes/_k_proto.pyx'],
                                      include_dirs=[numpy.get_include()],
-                                     extra_compile_args=['-O3',
-                                                         '-Wno-unreachable-code']),
-                           Extension('kmodes.util._util',
-                                     ['kmodes/util/_util.pyx'],
+                                     extra_compile_args=['-O3']),
+                           Extension('kcmodes.util._util',
+                                     ['kcmodes/util/_util.pyx'],
                                      include_dirs=[numpy.get_include()],
-                                     extra_compile_args=['-O3',
-                                                         '-Wno-unreachable-code']),
-                           Extension('kmodes.util._dissim',
-                                     ['kmodes/util/_dissim.pyx'],
+                                     extra_compile_args=['-O3']),
+                           Extension('kcmodes.util._dissim',
+                                     ['kcmodes/util/_dissim.pyx'],
                                      include_dirs=[numpy.get_include()],
-                                     extra_compile_args=['-O3',
-                                                         '-Wno-unreachable-code'])],
+                                     extra_compile_args=['-O3'])],
                           ),
 )

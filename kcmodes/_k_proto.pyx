@@ -10,20 +10,21 @@ from numpy.math cimport INFINITY
 from .util cimport _util
 from .util cimport _dissim
 
+from libc.stdint cimport int32_t, int64_t
 
 ctypedef struct ClustInfo:
-    int clust
+    int32_t clust
     double min_dist
 
 
 cpdef ClustInfo _get_clust(double[:] x_num,
                            double[:, :] centroids_num,
-                           long[:] x_cat,
-                           long[:, :] centroids_cat,
-                           int num_clusters,
+                           int64_t[:] x_cat,
+                           int64_t[:, :] centroids_cat,
+                           int32_t num_clusters,
                            double gamma):
     cdef:
-        int iclust, clust, b
+        int32_t iclust, clust, b
         double curr_dist, a
         ClustInfo c
 
@@ -40,17 +41,17 @@ cpdef ClustInfo _get_clust(double[:] x_num,
     return c
 
 
-def _init_centroids(np.ndarray[long, ndim=2, mode='c'] X,
-                    np.ndarray[long, ndim=2, mode='c'] centroids):
+def _init_centroids(np.ndarray[int64_t, ndim=2, mode='c'] X,
+                    np.ndarray[int64_t, ndim=2, mode='c'] centroids):
     cdef:
-        long iclust, ipoint, ipoint_centroid
+        int64_t iclust, ipoint, ipoint_centroid
 
-        long[:] _dissims = np.zeros(X.shape[0], dtype='int64')
+        int64_t[:] _dissims = np.zeros(X.shape[0], dtype='int64')
 
-        long[:, :] _X = X
-        long[:, :] _centroids = centroids
+        int64_t[:, :] _X = X
+        int64_t[:, :] _centroids = centroids
 
-        np.ndarray[long, ndim=1, mode='c'] ndx, dissims
+        np.ndarray[int64_t, ndim=1, mode='c'] ndx, dissims
 
     dissims = np.asarray(_dissims)
 
@@ -70,16 +71,16 @@ def _init_centroids(np.ndarray[long, ndim=2, mode='c'] X,
 
 
 def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
-                 np.ndarray[long, ndim=2, mode='c'] Xcat,
+                 np.ndarray[int64_t, ndim=2, mode='c'] Xcat,
                  centroids,
                  double gamma):
     """Calculate labels and cost function given a matrix of points and
     a list of centroids for the k-prototypes algorithm.
     """
     cdef:
-        int ipoint, clust
-        int n_points = Xnum.shape[0]
-        int n_clusters = len(centroids[0])
+        int32_t ipoint, clust
+        int32_t n_points = Xnum.shape[0]
+        int32_t n_clusters = len(centroids[0])
 
         double min_dist
         double cost = 0.0
@@ -87,9 +88,9 @@ def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
         double[:] x_num
         double[:, :] _centroids_num = centroids[0]
 
-        long[:, :] _Xcat = Xcat
-        long[:] x_cat
-        long[:, :] _centroids_cat = centroids[1]
+        int64_t[:, :] _Xcat = Xcat
+        int64_t[:] x_cat
+        int64_t[:, :] _centroids_cat = centroids[1]
 
         ClustInfo c
 
@@ -106,21 +107,21 @@ def _labels_cost(np.ndarray[double, ndim=2, mode='c'] Xnum,
 
 
 def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
-                       np.ndarray[long, ndim=2, mode='c'] Xcat,
+                       np.ndarray[int64_t, ndim=2, mode='c'] Xcat,
                        centroids,
                        np.ndarray[double, ndim=2, mode='c'] cl_attr_sum,
-                       np.ndarray[long, ndim=1, mode='c'] cl_memb_sum,
-                       np.ndarray[long, ndim=2, mode='c'] cl_attr_freq,
-                       np.ndarray[long, ndim=1, mode='c'] cat_offsets,
-                       np.ndarray[long, ndim=1, mode='c'] membship,
+                       np.ndarray[int64_t, ndim=1, mode='c'] cl_memb_sum,
+                       np.ndarray[int64_t, ndim=2, mode='c'] cl_attr_freq,
+                       np.ndarray[int64_t, ndim=1, mode='c'] cat_offsets,
+                       np.ndarray[int64_t, ndim=1, mode='c'] membship,
                        double gamma):
     """Single iteration of the k-prototypes algorithm"""
     cdef:
-        int ipoint, clust, curc, iattr
-        int n_points = Xnum.shape[0]
-        int n_clusters = centroids[0].shape[0]
-        int n_num_attr = Xnum.shape[1]
-        int moves = 0
+        int32_t ipoint, clust, curc, iattr
+        int32_t n_points = Xnum.shape[0]
+        int32_t n_clusters = centroids[0].shape[0]
+        int32_t n_num_attr = Xnum.shape[1]
+        int32_t moves = 0
 
         double min_dist
         double[:, :] _Xnum = Xnum
@@ -128,11 +129,11 @@ def _k_prototypes_iter(np.ndarray[double, ndim=2, mode='c'] Xnum,
         double[:, :] _cl_attr_sum = cl_attr_sum
         double[:, :] _centroids_num = centroids[0]
 
-        long[:, :] _Xcat = Xcat
-        long[:] x_cat
-        long[:] _membship = membship
-        long[:] _cl_memb_sum = cl_memb_sum
-        long[:, :] _centroids_cat = centroids[1]
+        int64_t[:, :] _Xcat = Xcat
+        int64_t[:] x_cat
+        int64_t[:] _membship = membship
+        int64_t[:] _cl_memb_sum = cl_memb_sum
+        int64_t[:, :] _centroids_cat = centroids[1]
 
         ClustInfo c
 

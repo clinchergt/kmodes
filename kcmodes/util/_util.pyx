@@ -3,11 +3,12 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
+from libc.stdint cimport int32_t, int64_t
 
-cdef void _move_point_num(double[:] point, int to_clust, int from_clust, double[:, :] cl_attr_sum, long[:] cl_memb_sum):
+cdef void _move_point_num(double[:] point, int32_t to_clust, int32_t from_clust, double[:, :] cl_attr_sum, int64_t[:] cl_memb_sum):
     """Move point between clusters, numerical attributes."""
     cdef:
-        int iattr = 0
+        int32_t iattr = 0
         double curattr
 
     # Update sum of attributes in cluster.
@@ -20,17 +21,17 @@ cdef void _move_point_num(double[:] point, int to_clust, int from_clust, double[
     cl_memb_sum[from_clust] -= 1
 
 
-cdef void _move_point_cat(long[:] point, long ipoint, long to_clust, long from_clust,
-                   long[:, :] cl_attr_freq,
-                   long[:] cat_offsets,
-                   long[:] membship,
-                   long[:, :] centroids):
+cdef void _move_point_cat(int64_t[:] point, int64_t ipoint, int64_t to_clust, int64_t from_clust,
+                   int64_t[:, :] cl_attr_freq,
+                   int64_t[:] cat_offsets,
+                   int64_t[:] membship,
+                   int64_t[:, :] centroids):
     """Move point between clusters, categorical attributes."""
     cdef:
-        int iattr, offset, max_index
-        long max_val
-        long curattr
-        long current_centroid_value, current_centroid_freq, current_attribute_value_freq
+        int32_t iattr, offset, max_index
+        int64_t max_val
+        int64_t curattr
+        int64_t current_centroid_value, current_centroid_freq, current_attribute_value_freq
 
     membship[ipoint] = to_clust
     # Update frequencies of attributes in cluster.
@@ -60,13 +61,13 @@ cdef void _move_point_cat(long[:] point, long ipoint, long to_clust, long from_c
             centroids[from_clust, iattr] = _get_max_value_key(cl_attr_freq, cat_offsets, from_clust, iattr)
 
 
-cpdef long _get_max_value_key(long[:, :] cl_attr_freq, long[:] cat_offsets, long clust, long iattr):
+cpdef int64_t _get_max_value_key(int64_t[:, :] cl_attr_freq, int64_t[:] cat_offsets, int64_t clust, int64_t iattr):
     cdef:
-        long max_val = 0
-        long index = 0
-        unsigned long i
-        long offset
-        long[:] cats
+        int64_t max_val = 0
+        int64_t index = 0
+        int64_t i
+        int64_t offset
+        int64_t[:] cats
     offset = cat_offsets[iattr]
     if iattr == <long>len(cat_offsets) - 1:
         cats = cl_attr_freq[clust, offset:]
