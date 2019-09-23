@@ -9,6 +9,8 @@ from scipy import sparse
 from sklearn.base import BaseEstimator, ClusterMixin, TransformerMixin
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
+from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.utils.extmath import stable_cumsum
 
 from .util import encode_features, get_unique_rows, decode_centroids
 from .util.init import init_cao, init_huang
@@ -78,13 +80,15 @@ def preprocess(data):
 
 def k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs,
                         n_clusters, n_points, max_iter, gamma, init,
-                        init_no, seed, verbose):
+                        init_no, random_state, verbose):
     # For numerical part of initialization, we don't have a guarantee
     # that there is not an empty cluster, so we need to retry until
     # there is none.
     init_tries = 0
     sizes = cat_sizes(Xcat)
     offsets = cat_offsets(sizes)
+
+    random_state = check_random_state(random_state)
 
     while True:
         init_tries += 1
@@ -123,12 +127,62 @@ def k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs,
         if not isinstance(init, list):
             # Numerical is initialized by drawing from normal distribution,
             # categorical following the k-modes methods.
-            meanx = np.mean(Xnum, axis=0)
-            stdx = np.std(Xnum, axis=0)
-            centroids = (
-                meanx + np.random.randn(n_clusters, nnumattrs) * stdx,
-                centroids
-            )
+
+            # Initialize instead using kmeans++ which makes kmeans
+            # more efficient and gets rid of the initialization problem
+            # where empty clusters result
+            
+            # Faster than np.sum(Xnum * Xnum, axis=1) and uses up less memory
+            # less readable tho
+
+            n_samples, n_features = Xnum.shape
+            centers = np.empty((n_clusters, n_features), dtype=Xnum.dtype)
+            row_norms = np.einsum('ij,ij->i', Xnum, Xnum)
+            
+            # Recommended by Arthur and Vassilvitskii
+            n_local_trials = 2 + int(np.log(n_clusters))
+            
+            # kmeans++ picks first centroid at random from the data
+            center_id = random_state.randint(n_samples)
+            centers[0] = Xnum[center_id]
+
+            # kmeans++ uses distances from the current center to the
+            # rest of the points in the data to pick the next center
+            closest_dist_sq = euclidean_distances(
+                    centers[0, np.newaxis], Xnum, Y_norm_squared=row_norms,
+                    squared=True)
+            current_pot = closest_dist_sq.sum()
+
+            # Pick the remaining n_clusters-1 points
+            for c in range(1, n_clusters):
+                # Choose center candidates by sampling with probability proportional
+                # to the squared distance to the closest existing center
+                rand_vals = random_state.random_sample(n_local_trials) * current_pot
+                candidate_ids = np.searchsorted(stable_cumsum(closest_dist_sq),
+                                                rand_vals)
+                # XXX: numerical imprecision can result in a candidate_id out of range
+                np.clip(candidate_ids, None, closest_dist_sq.size - 1,
+                        out=candidate_ids)
+
+                # Compute distances to center candidates
+                distance_to_candidates = euclidean_distances(
+                    Xnum[candidate_ids], Xnum, Y_norm_squared=row_norms, squared=True)
+
+                # update closest distances squared and potential for each candidate
+                np.minimum(closest_dist_sq, distance_to_candidates,
+                           out=distance_to_candidates)
+                candidates_pot = distance_to_candidates.sum(axis=1)
+
+                # Decide which candidate is the best
+                best_candidate = np.argmin(candidates_pot)
+                current_pot = candidates_pot[best_candidate]
+                closest_dist_sq = distance_to_candidates[best_candidate]
+                best_candidate = candidate_ids[best_candidate]
+
+                # Permanently add best center candidate found in local tries
+                centers[c] = Xnum[best_candidate]
+
+            centroids = (centers, centroids)
 
         if verbose:
             print("Init: initializing clusters")
@@ -215,15 +269,15 @@ def k_prototypes(X, n_clusters, max_iter,
 
     if sparse.issparse(X):
         raise TypeError("k-prototypes does not support sparse data.")
+    
+    # FIX: allow to pass a random state
+    random_state = check_random_state(None)
 
     Xnum, Xcat = preprocess(X)
     Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
 
     ncatattrs = Xcat.shape[1]
     nnumattrs = Xnum.shape[1]
-
-    # FIX: allow to pass a random state
-    random_state = check_random_state(None)
 
     if ncatattrs == 0:
         ValueError("No categorical attributes in input data, use K-Means instead.")
