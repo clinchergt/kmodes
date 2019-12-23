@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from .. import _k_proto
 
-def init_huang(X, n_clusters):
+def init_huang(X, n_clusters, random_state):
     """Initialize centroids according to method by Huang [1997]."""
     n_attrs = X.shape[1]
     centroids = np.empty((n_clusters, n_attrs), dtype='int64')
@@ -22,7 +22,7 @@ def init_huang(X, n_clusters):
         # So that we are consistent between Python versions,
         # each with different dict ordering.
         choices = sorted(choices)
-        centroids[:, iattr] = np.random.choice(choices, n_clusters)
+        centroids[:, iattr] = random_state.choice(choices, n_clusters)
 
     # The previously chosen centroids could result in empty clusters,
     # so set centroid to closest point in X.

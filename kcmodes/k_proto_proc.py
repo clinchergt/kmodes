@@ -79,11 +79,11 @@ def k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs,
         if verbose:
             print("Init: initializing centroids")
         if isinstance(init, str) and init.lower() == 'huang':
-            centroids = init_huang(Xcat, n_clusters)
+            centroids = init_huang(Xcat, n_clusters, random_state)
         elif isinstance(init, str) and init.lower() == 'cao':
             centroids = init_cao(Xcat, n_clusters)
         elif isinstance(init, str) and init.lower() == 'random':
-            seeds = np.random.choice(range(n_points), n_clusters)
+            seeds = random_state.choice(range(n_points), n_clusters)
             centroids = Xcat[seeds]
         elif isinstance(init, list):
             # Make sure inits are 2D arrays.

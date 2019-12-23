@@ -28,14 +28,14 @@ RAISE_INIT_TRIES = 100
 
 
 def k_prototypes(X, n_clusters, max_iter,
-                 gamma, init, n_init, verbose, n_jobs, enc_map):
+                 gamma, init, n_init, verbose, n_jobs, random_state, enc_map):
     """k-prototypes algorithm"""
 
     if sparse.issparse(X):
         raise TypeError("k-prototypes does not support sparse data.")
-    
+
     # FIX: allow to pass a random state
-    random_state = check_random_state(None)
+    random_state = check_random_state(random_state)
 
     Xnum, Xcat = preprocess(X)
     Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
@@ -79,12 +79,12 @@ def k_prototypes(X, n_clusters, max_iter,
 
     results = []
     seeds = random_state.randint(np.iinfo(np.int32).max, size=n_init)
-    
+
     if n_jobs == 1:
         for init_no in range(n_init):
             results.append(k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs,
                                                n_clusters, n_points, max_iter, gamma, init,
-                                               init_no, seed, verbose))
+                                               init_no, random_state, verbose))
     else:
         # Assignation instead of append cause no longer returning atomic values
         results = Parallel(n_jobs=n_jobs, max_nbytes=None, verbose=0)(
@@ -168,13 +168,14 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
     """
 
     def __init__(self, n_clusters=8, max_iter=100, init='Huang', n_init=10, gamma=None,
-                 verbose=0, n_jobs=-1):
+                 verbose=0, n_jobs=-1, random_state=42):
 
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.init = init
         self.n_init = n_init
         self.verbose = verbose
+        self.random_state = random_state
         if ((isinstance(self.init, str) and self.init == 'Cao') or
                 hasattr(self.init, '__array__')) and self.n_init > 1:
             if self.verbose:
@@ -206,6 +207,7 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
                                                     self.n_init,
                                                     self.verbose,
                                                     self.n_jobs,
+                                                    self.random_state,
                                                     enc_map)
         return self
 
