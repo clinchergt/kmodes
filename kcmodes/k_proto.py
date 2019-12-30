@@ -18,15 +18,6 @@ from .util import _util
 
 from joblib import Parallel, delayed
 
-
-# Number of tries we give the initialization methods to find non-empty
-# clusters before we switch to random initialization.
-MAX_INIT_TRIES = 10
-# Number of tries we give the initialization before we raise an
-# initialization error.
-RAISE_INIT_TRIES = 100
-
-
 def k_prototypes(X, n_clusters, max_iter,
                  gamma, init, n_init, verbose, n_jobs, random_state, enc_map):
     """k-prototypes algorithm"""

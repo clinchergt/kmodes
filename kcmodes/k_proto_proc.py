@@ -11,6 +11,13 @@ from .util.init import init_cao, init_huang
 from . import _k_proto
 from .util import _util
 
+# Number of tries we give the initialization methods to find non-empty
+# clusters before we switch to random initialization.
+MAX_INIT_TRIES = 10
+# Number of tries we give the initialization before we raise an
+# initialization error.
+RAISE_INIT_TRIES = 100
+
 def _split_num_cat(X, categorical):
     """Extract numerical and categorical columns.
     Convert to numpy arrays, if needed.
