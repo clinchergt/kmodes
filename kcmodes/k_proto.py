@@ -19,7 +19,8 @@ from .util import _util
 from joblib import Parallel, delayed
 
 def k_prototypes(X, n_clusters, max_iter,
-                 gamma, init, n_init, verbose, n_jobs, random_state, enc_map):
+                 gamma, gamma_method, init,
+                 n_init, verbose, n_jobs, random_state, enc_map):
     """k-prototypes algorithm"""
 
     if sparse.issparse(X):
@@ -59,9 +60,20 @@ def k_prototypes(X, n_clusters, max_iter,
     #     init[1], _ = encode_features(init[1], enc_map)
 
     # Estimate a good value for gamma, which determines the weighing of
-    # categorical values in clusters (see Huang [1997]).
+    # categorical values in clusters (see clustMixType R package docs and
+    # Huang [1997]).
     if gamma is None:
-        gamma = 0.5 * Xnum.std()
+        if gamma_method.lower() == 'clustmixtype':
+            import functools
+            # Transpose in order to get means and counts on a per column basis
+            counts = list(map(functools.partial(np.unique, return_counts=True), Xcat.T))
+            scored_sum = lambda x: 1 - sum((x[1] / sum(x[1]))**2)
+            vcat = np.mean(list(map(scored_sum, counts)))
+            vnum = np.mean(list(map(np.var, Xnum.T)))
+            gamma = vnum / vcat
+        # 'default' would probably be better here and disallow every other value(?)
+        else:
+            gamma = 0.5 * Xnum.std()
 
     all_centroids = []
     all_labels = []
@@ -159,13 +171,14 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
     """
 
     def __init__(self, n_clusters=8, max_iter=100, init='Huang', n_init=10, gamma=None,
-                 verbose=0, n_jobs=-1, random_state=42):
+                 verbose=0, n_jobs=-1, random_state=42, gamma_method='clustmixtype'):
 
         self.n_clusters = n_clusters
         self.max_iter = max_iter
         self.init = init
         self.n_init = n_init
         self.verbose = verbose
+        self.gamma_method = gamma_method
         self.random_state = random_state
         if ((isinstance(self.init, str) and self.init == 'Cao') or
                 hasattr(self.init, '__array__')) and self.n_init > 1:
@@ -194,6 +207,7 @@ class KPrototypes(BaseEstimator, ClusterMixin, TransformerMixin):
                                                     self.n_clusters,
                                                     self.max_iter,
                                                     self.gamma,
+                                                    self.gamma_method,
                                                     self.init,
                                                     self.n_init,
                                                     self.verbose,
